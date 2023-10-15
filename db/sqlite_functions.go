@@ -3,25 +3,21 @@ package db
 import (
 	"database/sql/driver"
 	"encoding/base64"
+	"encoding/json"
 
 	"modernc.org/sqlite"
 )
 
 var (
-	stringType    = 0b001
-	numericType   = 0b010
-	boolTrueType  = 0b011
-	boolFalseType = 0b100
-	nullType      = 0b101
-	containerType = 0b110
+	contType      jsonType = 0b000
+	keyType       jsonType = 0b001
+	stringType    jsonType = 0b010
+	numericType   jsonType = 0b011
+	boolTrueType  jsonType = 0b100
+	boolFalseType jsonType = 0b101
+	nullType      jsonType = 0b110
+	containerType jsonType = 0b111
 )
-
-// INSERT INTO test VALUES(jsonb({"v":1}))
-// SELECT unmarshal(x) FROM test
-func initSQLiteFunctions() {
-	sqlite.MustRegisterScalarFunction("jsonb2", 1, jsonbHandler)
-	sqlite.MustRegisterScalarFunction("unmarshal", 1, unmarshalHandler)
-}
 
 // NOTE: it seems impossible to implement jsonb in the same way as postgres does.
 // While pg's jsonb is able to store data in a tree structure where every node is varlena,
@@ -36,6 +32,23 @@ func initSQLiteFunctions() {
 //
 // This potentially might also introduce some way of indexing specific keys in documents by using expression indexes and virtual columns(?)
 func jsonbHandler(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+	input := args[0].(string)
+
+	m := map[string]interface{}{}
+
+	if err := json.Unmarshal([]byte(input), &m); err != nil {
+		return nil, err
+	}
+
+	var res []byte
+
+	for k, v := range m {
+		// 11100000 - dataType mask (0-7)
+		// 00011111 - dataLen in bytes mask (0-31)
+		length := len(k)
+		res = append(res, genHeader(keyType, uint8(length)))
+	}
+
 	return base64.StdEncoding.EncodeToString([]byte(args[0].(string))), nil
 }
 
@@ -43,11 +56,14 @@ func unmarshalHandler(ctx *sqlite.FunctionContext, args []driver.Value) (driver.
 	return base64.StdEncoding.DecodeString(args[0].(string))
 }
 
-type jsonType uint8
+func genHeader(typ jsonType, length uint8) (header byte) {
+	header = byte(typ << 5)
+	if length > 31 || length < 0 {
+		panic("Invalid length")
+	}
 
-const (
-	keyTyp jsonType = iota
-	stringTyp
-	numTyp
-	floatTyp
-)
+	header += length
+	return
+}
+
+type jsonType uint8
