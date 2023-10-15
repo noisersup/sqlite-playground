@@ -7,6 +7,15 @@ import (
 	"modernc.org/sqlite"
 )
 
+var (
+	stringType    = 0b001
+	numericType   = 0b010
+	boolTrueType  = 0b011
+	boolFalseType = 0b100
+	nullType      = 0b101
+	containerType = 0b110
+)
+
 // INSERT INTO test VALUES(jsonb({"v":1}))
 // SELECT unmarshal(x) FROM test
 func initSQLiteFunctions() {
