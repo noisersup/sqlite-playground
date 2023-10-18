@@ -47,9 +47,32 @@ func jsonbHandler(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Valu
 		// 00011111 - dataLen in bytes mask (0-31)
 		length := len(k)
 		res = append(res, genHeader(keyType, uint8(length)))
+		res = append(res, marshalValue(k)...)
+
+		val := marshalValue(v)
+		res = append(res, genHeader(getType(v), uint8(len(val))))
+		res = append(res, val...)
 	}
 
-	return base64.StdEncoding.EncodeToString([]byte(args[0].(string))), nil
+	return res, nil
+}
+
+func marshalValue(v any) []byte {
+	switch getType(v) {
+	case stringType:
+		return []byte(v.(string))
+	default:
+		panic("not yet, how did you access it tho?")
+	}
+}
+
+func getType(v any) jsonType {
+	switch v.(type) {
+	case string:
+		return stringType
+	default:
+		panic("not yet")
+	}
 }
 
 func unmarshalHandler(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
