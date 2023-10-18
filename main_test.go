@@ -5,6 +5,7 @@ import (
 	"sqlite-battlefield/db"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite" // register database/sql driver
 )
@@ -47,9 +48,9 @@ func TestJson(t *testing.T) {
 
 		require.NoError(t, db.Insert(jsonStr))
 
-		//res, err := db.Query()
-		//require.NoError(t, err)
+		res, err := db.Query()
+		require.NoError(t, err)
 
-		//assert.Equal(t, jsonStr, res)
+		assert.Equal(t, jsonStr, res)
 	}
 }

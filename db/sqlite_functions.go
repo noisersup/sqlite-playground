@@ -2,9 +2,9 @@ package db
 
 import (
 	"database/sql/driver"
-	"encoding/base64"
 	"encoding/json"
 
+	"github.com/Jeffail/gabs/v2"
 	"modernc.org/sqlite"
 )
 
@@ -75,8 +75,44 @@ func getType(v any) jsonType {
 	}
 }
 
+// TODO make iterator here and make it work overall when you're less tired lol
 func unmarshalHandler(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
-	return base64.StdEncoding.DecodeString(args[0].(string))
+	input := args[0].([]byte)
+
+	jsonObj := gabs.New()
+
+	typ, length := readHeader(input[0])
+	if typ != keyType {
+		panic("huh")
+	}
+
+	base := 1
+
+	var keyBin []byte
+
+	for i := 0; i < int(length); i++ {
+		keyBin = append(keyBin, input[base+i])
+	}
+
+	base = base + int(length) - 1
+
+	var valBin []byte
+
+	typ, length = readHeader(input[base+1])
+	base += 1
+
+	for i := 0; i < int(length); i++ {
+		valBin = append(valBin, input[base+i])
+	}
+
+	jsonObj.Set(string(valBin), string(keyBin))
+
+	return jsonObj.String(), nil
+}
+
+func readHeader(header byte) (jsonType, uint8) {
+	return jsonType(header & 0b111),
+		header & 0b00011111
 }
 
 func genHeader(typ jsonType, length uint8) (header byte) {
