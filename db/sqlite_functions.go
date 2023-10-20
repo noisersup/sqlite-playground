@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+	"log"
 
 	"github.com/Jeffail/gabs/v2"
 	"modernc.org/sqlite"
@@ -86,6 +87,8 @@ func unmarshalHandler(ctx *sqlite.FunctionContext, args []driver.Value) (driver.
 	jsonObj := gabs.New()
 	iter := NewIterator(input)
 
+	log.Println(input)
+
 	for {
 		b, err := iter.Next()
 		if err == ErrIteratorDone {
@@ -129,6 +132,8 @@ func unmarshalHandler(ctx *sqlite.FunctionContext, args []driver.Value) (driver.
 
 		jsonObj.Set(string(v), string(key))
 	}
+
+	log.Println(jsonObj.String())
 
 	return jsonObj.String(), nil
 }

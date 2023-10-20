@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"log"
 	"sqlite-battlefield/db"
 	"testing"
 
@@ -52,7 +51,6 @@ func TestJson(t *testing.T) {
 		res, err := db.Query()
 		require.NoError(t, err)
 
-		log.Println(res)
 		assert.Equal(t, jsonStr, res)
 	}
 }
