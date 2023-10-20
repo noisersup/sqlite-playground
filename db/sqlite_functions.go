@@ -3,6 +3,7 @@ package db
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 
 	"github.com/Jeffail/gabs/v2"
 	"modernc.org/sqlite"
@@ -77,35 +78,57 @@ func getType(v any) jsonType {
 
 // TODO make iterator here and make it work overall when you're less tired lol
 func unmarshalHandler(ctx *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
-	input := args[0].([]byte)
+	input, ok := args[0].([]byte)
+	if !ok {
+		return nil, fmt.Errorf("Invalid type, expected []byte")
+	}
 
 	jsonObj := gabs.New()
+	iter := NewIterator(input)
 
-	typ, length := readHeader(input[0])
-	if typ != keyType {
-		panic("huh")
+	for {
+		b, err := iter.Next()
+		if err == ErrIteratorDone {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		typ, length := readHeader(b)
+		if typ != keyType {
+			panic("huh")
+		}
+
+		var key []byte
+		for i := 0; i < int(length); i++ {
+			keyByte, err := iter.Next()
+			if err != nil {
+				return nil, err
+			}
+
+			key = append(key, keyByte)
+		}
+
+		b, err = iter.Next()
+		if err != nil {
+			return nil, err
+		}
+
+		typ, length = readHeader(b)
+
+		var v []byte
+		for i := 0; i < int(length); i++ {
+			valByte, err := iter.Next()
+			if err != nil {
+				return nil, err
+			}
+
+			v = append(v, valByte)
+		}
+
+		jsonObj.Set(string(v), string(key))
 	}
-
-	base := 1
-
-	var keyBin []byte
-
-	for i := 0; i < int(length); i++ {
-		keyBin = append(keyBin, input[base+i])
-	}
-
-	base = base + int(length) - 1
-
-	var valBin []byte
-
-	typ, length = readHeader(input[base+1])
-	base += 1
-
-	for i := 0; i < int(length); i++ {
-		valBin = append(valBin, input[base+i])
-	}
-
-	jsonObj.Set(string(valBin), string(keyBin))
 
 	return jsonObj.String(), nil
 }
